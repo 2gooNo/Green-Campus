@@ -27,13 +27,14 @@ export function Dashboard() {
     refetch,
   } = useSensorData(5000);
   const [localAutoMode, setLocalAutoMode] = useState<boolean | null>(null);
-  const [isWatering, setIsWatering] = useState(false);
+  const [isWaterActionPending, setIsWaterActionPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   // Use backend auto mode if available, otherwise use local state
   const autoMode = backendAutoMode ?? localAutoMode ?? false;
   const moisture = sensorData?.moisture ?? 0;
   const temperature = sensorData?.temperature ?? 0;
+  const isWatering = sensorData?.isWatering ?? false;
 
   const getMoistureStatus = (value: number) => {
     if (value < 30) return "danger";
@@ -41,22 +42,19 @@ export function Dashboard() {
     return "success";
   };
 
-  const handleWaterNow = useCallback(async () => {
+  const handleWaterToggle = useCallback(async () => {
     try {
       setActionError(null);
-      setIsWatering(true);
+      setIsWaterActionPending(true);
       await triggerWatering();
-      // Refetch data after watering
-      setTimeout(() => {
-        refetch();
-        setIsWatering(false);
-      }, 1000);
+      await refetch();
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "Failed to trigger watering";
+        err instanceof Error ? err.message : "Failed to change watering state";
       setActionError(errorMessage);
-      setIsWatering(false);
-      console.error("Water now error:", err);
+      console.error("Water toggle error:", err);
+    } finally {
+      setIsWaterActionPending(false);
     }
   }, [refetch]);
 
@@ -199,8 +197,9 @@ export function Dashboard() {
         <ControlPanel
           autoMode={autoMode}
           onAutoModeChange={handleAutoModeChange}
-          onWaterNow={handleWaterNow}
+          onWaterToggle={handleWaterToggle}
           isWatering={isWatering}
+          isWaterActionPending={isWaterActionPending}
         />
 
         {/* Moisture Chart */}
